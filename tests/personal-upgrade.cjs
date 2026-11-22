@@ -15,6 +15,7 @@ async function ready(page){await page.waitForFunction(()=>/交互已启用|组�
  await p.locator('#cycleComplete').tap();assert.match(await p.locator('#cycleRecommendation').textContent(),/B/);
  assert.equal(await p.evaluate(()=>localStorage.getItem('gym-compatible.rotation.v1')),null,'new calendar records stay outside the legacy global namespace');
  assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('gym-account.v2|guest|gym-compatible.rotation.v1')).sessions.length),1);
+ await p.locator('.extras-menu > summary').click();await p.locator('.extras-menu a[href="#history"]').click();
  await p.locator('.workout-import').evaluate(e=>e.open=true);await p.locator('#importWorkout').setInputFiles({name:'private.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(fixture))});
  await p.locator('#applyWorkoutImport').click();assert.match(await p.locator('#cycleRecommendation').textContent(),/C/);assert.match(await p.locator('#historyRows').innerText(),/时间未记录/);
  assert.equal(await p.locator('#wed-legpress input.load').inputValue(),'6.25');

@@ -30,7 +30,7 @@ async function open(page) { await page.goto(origin); await ready(page); await sh
 async function reload(page) { await page.reload(); await ready(page); await showCycle(page); }
 async function frozen(page, iso = '2020-10-19T03:00:00+09:00') { await page.clock.install({ time: new Date(iso) }); await open(page); }
 async function showCard(page,id){if(page.scriptsEnabled===false)return;const day=id.split('-')[0];if(['mon','wed','fri'].includes(day)&&!await page.locator('#'+day).isVisible())await page.locator('.quicknav a[href="#'+day+'"]').tap();}
-async function text(page, id) { return page.locator(id).innerText(); }
+async function text(page, id) { return id.startsWith('#history') ? page.locator(id).textContent() : page.locator(id).innerText(); }
 async function main() {
   server = http.createServer((req,res) => {
     const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
@@ -108,6 +108,7 @@ async function main() {
   await test('flexible new check-ins retain legacy weights and use separate daily posture keys', async (p,c) => {
     await c.addInitScript(()=>{if(!localStorage.getItem('test-seeded')){localStorage.setItem('gym-compatible.load.row','17.5');localStorage.setItem('gym-compatible.done.2020-10-21.mon-row','yes');localStorage.setItem('test-seeded','yes');}});
     await frozen(p,'2020-10-21T12:00:00+09:00');assert.equal(await p.locator('#mon-row input.load').inputValue(),'17.5');assert.equal(await p.locator('#mon-row input.done').isChecked(),true);
+    await p.locator('.extras-menu > summary').tap();await p.locator('.extras-menu a[href="#posture"]').tap();
     const posture=p.locator('input.done[data-key="posture-daily"]');await posture.check();await reload(p);assert.equal(await posture.isChecked(),true);
     await p.clock.setSystemTime(new Date('2020-10-22T12:00:00+09:00'));await p.evaluate(()=>window.dispatchEvent(new Event('focus')));assert.equal(await posture.isChecked(),false);assert.equal(await p.locator('#mon-row input.load').inputValue(),'17.5');
   });
@@ -209,8 +210,10 @@ async function main() {
     }
   });
   await test('day navigation and diet links reach real sections', async p => {
-    await open(p); for (const target of ['wed','fri','mon','diet','cardio','tips']) {
-      await Promise.all([p.waitForURL(url=>url.hash==='#'+target),p.locator(`a[href="#${target}"]`).first().tap()]);
+    await open(p); for (const target of ['wed','fri','mon','diet','cardio']) {
+      if(target==='diet')await p.locator('.extras-menu > summary').tap();
+      const link=target==='cardio'?'#mon a[href="#cardio"]':`a[href="#${target}"]`;
+      await Promise.all([p.waitForURL(url=>url.hash==='#'+target),p.locator(link).first().tap()]);
       assert.equal(new URL(p.url()).hash, '#'+target);
     }
   });
@@ -261,6 +264,7 @@ async function main() {
   });
   await test('history JSON export restores dates and weights in another browser without duplicating imports', async (p,c) => {
     await frozen(p);await p.locator('#mon-row input.load').fill('22.5');
+    await p.locator('.extras-menu > summary').click();await p.locator('.extras-menu a[href="#history"]').click();
     const downloadEvent=p.waitForEvent('download');await p.locator('#exportHistory').click();
     const download=await downloadEvent;const buffer=fs.readFileSync(await download.path());
     const backup=JSON.parse(buffer.toString());assert.equal(backup.entries[0].kg,22.5);assert.equal(backup.entries[0].date,'2020-10-19');

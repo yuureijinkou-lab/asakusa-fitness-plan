@@ -150,6 +150,8 @@ async function expose(locator) { await locator.evaluate(element => { let parent 
   console.log('PASS server error preserves local history and retries without data loss');
 
   const dateOnly = { app: 'asakusa-personal-profile', version: 1, entries: [{ id: 'date-only:2020-01-04:glute:33.75', exercise: 'glute', kg: 33.75, date: '2020-01-04', time: '00:00', at: '2020-01-03T15:00:00.000Z' }], sessions: [{ date: '2020-01-04', plan: 'b', completed: ['glute'], skipped: {} }] };
+  await b.p.locator('.extras-menu > summary').click();
+  await b.p.locator('.extras-menu a[href="#history"]').click();
   await expose(b.p.locator('#importWorkout'));
   await b.p.locator('#importWorkout').setInputFiles({ name: 'synthetic-profile.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(dateOnly)) });
   await b.p.locator('#applyWorkoutImport').click(); await synced(b.p, 4); assert.equal(privateWeights().length, 4);

@@ -12,6 +12,16 @@ let server,browser;
  await p.locator('.quicknav a[href="#wed"]').click();await p.goBack();assert.equal(await p.locator('#mon').isVisible(),true,'Back restores initial training');await p.goForward();assert.equal(await p.locator('#wed').isVisible(),true);
  await p.locator('.quicknav a[href="#mon"]').click();await p.locator('a[href="#cardio"]').first().click();await p.locator('.quicknav a[href="#fri"]').click();await p.goBack();assert.equal(await p.locator('#mon').isVisible(),true,'Back to shared section restores its training context');
  for(let id of ['wed','fri','mon','fri']){await p.locator('.quicknav a[href="#'+id+'"]').click();assert.equal(await p.locator('.workout-day:visible').count(),1);assert.equal(await p.locator('#'+id).isVisible(),true);}
+ for(const id of ['posture','diet','history']){
+  assert.equal(await p.locator('#'+id).isVisible(),false);
+  await p.locator('.extras-menu > summary').tap();
+  await p.locator('.extras-menu a[href="#'+id+'"]').tap();
+  assert.equal(await p.locator('#'+id).isVisible(),true);
+  assert.equal(await p.locator('.extras-menu').evaluate(e=>e.open),false);
+  await p.locator('.quicknav a[href="#fri"]').tap();
+  assert.equal(await p.locator('#'+id).isVisible(),false);
+  assert.equal(await p.locator('#warmup').evaluate(e=>e.getBoundingClientRect().top)<await p.locator('#fri').evaluate(e=>e.getBoundingClientRect().top),true);
+ }
  await p.goto(origin);assert.equal(await p.locator('#fri').isVisible(),true,'last viewed training survives reopen');
  await p.goto(origin+'/#wed-glute');assert.equal(await p.locator('#wed').isVisible(),true,'direct machine link selects its training');
  assert.equal(await p.locator('.machine-guide').count(),15);assert.equal(await p.locator('#wed-glute .machine-guide').evaluate(e=>e.open),false);
