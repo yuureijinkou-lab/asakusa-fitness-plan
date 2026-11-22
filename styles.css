@@ -159,3 +159,7 @@ body.timer-focus-active{position:fixed;width:100%;height:100%;overflow:hidden;ov
 
 /* Password login on narrow phones. */
 #passwordLogin{display:grid;gap:10px;margin:1rem 0}#passwordLogin h3{margin:0 0 .3rem}#passwordLogin label{font-weight:700}#passwordLogin input{width:100%;min-width:0;min-height:48px;border:1px solid #c7dbcc;border-radius:9px;padding:10px;font-size:16px}#passwordLogin button{min-height:48px}#passwordLogin p{margin:0}
+
+/* Compact training workspace: native disclosure works without JavaScript. */
+.space-summary{cursor:pointer;min-height:48px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:12px}.space-summary small{font-weight:500;color:var(--sub);font-size:12px}.space-body{border-top:1px solid var(--border);padding-top:14px;margin-top:12px}.machine-guide{margin:12px 0}.machine-guide>summary{cursor:pointer;min-height:44px;padding:10px 0;color:var(--green);font-weight:700;font-size:14px}.machine-guide ol{margin-top:8px}.quicknav{position:sticky;top:0;z-index:20;background:var(--bg);padding:7px 0}.quicknav a[aria-current="page"]{background:var(--green);color:white;border-color:var(--green)}.quicknav a[aria-current="page"] small{color:#d9eee2}.workout-day{scroll-margin-top:96px}.machine{scroll-margin-top:96px}
+/* Switch training immediately, without a scrolling animation moving tap targets. */ html{scroll-behavior:auto}

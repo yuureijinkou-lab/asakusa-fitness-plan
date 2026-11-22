@@ -1,4 +1,39 @@
 
+(function () {
+  'use strict';
+  var days=['mon','wed','fri'],key='gym.view.training.v1',active='mon';
+  var sections=days.map(function(id){return document.getElementById(id);});
+  if(sections.some(function(section){return !section;}))return;
+  function fromHash(hash){var match=/^#(mon|wed|fri)(?:-|$)/.exec(hash);return match&&match[1];}
+  function show(id){
+    if(days.indexOf(id)<0)return;
+    active=id;
+    sections.forEach(function(section){section.hidden=section.id!==id;});
+    document.querySelectorAll('.quicknav a').forEach(function(link){
+      if(link.hash==='#'+id)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
+    });
+    try{localStorage.setItem(key,id);}catch(error){}
+  }
+  function reveal(hash){
+    var id=fromHash(hash);if(id)show(id);
+    if(hash==='#sync')document.getElementById('sync').open=true;
+  }
+  var saved=null;try{saved=localStorage.getItem(key);}catch(error){}
+  function entryDay(){return history.state&&days.indexOf(history.state.gymTrainingView)>=0?history.state.gymTrainingView:null;}
+  function rememberEntry(){try{history.replaceState(Object.assign({},history.state,{gymTrainingView:active}),'');}catch(error){}}
+  function navigate(){show(fromHash(location.hash)||entryDay()||active);reveal(location.hash);rememberEntry();}
+  show(fromHash(location.hash)||entryDay()||(days.indexOf(saved)>=0?saved:'mon'));
+  reveal(location.hash);
+  rememberEntry();
+  document.addEventListener('click',function(event){
+    if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+    var link=event.target.closest('a[href]');
+    if(link&&link.target!=='_blank'&&link.origin===location.origin&&link.pathname===location.pathname){reveal(link.hash);if(link.hash===location.hash)rememberEntry();}
+  });
+  window.addEventListener('hashchange',navigate);
+  window.addEventListener('popstate',navigate);
+})();
+
 (async function () {
   'use strict';
   var fields={row:['fore_aft','height'],chest:['seat','adjustment'],triceps:['seat'],abs:['height'],glute:['position'],legpress:['position'],legcurl:['roller','start'],abductor:['position']};
