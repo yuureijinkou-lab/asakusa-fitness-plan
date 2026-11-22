@@ -343,21 +343,8 @@
   function write(key,value){accountStore.set(key,value);storageMessage();}
   function refreshSettings(){settingInputs.forEach(function(input){var value=read('gym-compatible.setting.'+input.dataset.setting)||'';if(document.activeElement!==input)input.value=value;document.querySelectorAll('[data-setting-value="'+input.dataset.setting+'"]').forEach(function(dd){dd.textContent=value||'待记录';});});}
   settingInputs.forEach(function(input){input.addEventListener('input',function(){write('gym-compatible.setting.'+this.dataset.setting,this.value);refreshSettings();});});
-  var photoSettingsCorrected=accountStore.correctLegacyPhotoSettings();
+  accountStore.correctLegacyPhotoSettings();
   refreshSettings();
-  if(photoSettingsCorrected)document.getElementById('settingCorrectionStatus').textContent='已自动更正旧档位：胸推7 / D，三头肌2。重量、日期和打卡未改动。';
-  var correctionButton=document.getElementById('applySettingCorrection');
-  if(correctionButton){
-    correctionButton.disabled=false;
-    correctionButton.addEventListener('click',function(){
-      write('gym-compatible.setting.chest.seat','7');
-      write('gym-compatible.setting.chest.adjustment','D');
-      write('gym-compatible.setting.triceps.seat','2');
-      if(read('gym-compatible.setting.triceps.adjustment')==='D')write('gym-compatible.setting.triceps.adjustment','');
-      refreshSettings();
-      document.getElementById('settingCorrectionStatus').textContent='已按新照片保存：胸推7 / D，三头肌2。重量、日期和打卡未改动。';
-    });
-  }
   function localDay() {
     var now = new Date();
     return now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
