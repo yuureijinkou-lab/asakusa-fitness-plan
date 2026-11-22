@@ -29,7 +29,8 @@ async function ready(page) {
 async function open(page) { await page.goto(origin); await ready(page); await showCycle(page); }
 async function reload(page) { await page.reload(); await ready(page); await showCycle(page); }
 async function frozen(page, iso = '2020-10-19T03:00:00+09:00') { await page.clock.install({ time: new Date(iso) }); await open(page); }
-async function showCard(page,id){if(page.scriptsEnabled===false)return;const day=id.split('-')[0];if(['mon','wed','fri'].includes(day)&&!await page.locator('#'+day).isVisible())await page.locator('.quicknav a[href="#'+day+'"]').tap();}
+async function dismissWorkoutPrompt(page){const prompt=page.locator('#workoutRecordDialog[open]');if(await prompt.count())await prompt.getByRole('button',{name:'仅查看'}).tap();}
+async function showCard(page,id){if(page.scriptsEnabled===false)return;const day=id.split('-')[0];if(['mon','wed','fri'].includes(day)&&!await page.locator('#'+day).isVisible()){await page.locator('.quicknav a[href="#'+day+'"]').tap();await dismissWorkoutPrompt(page);await page.locator('#'+day).waitFor({state:'visible'});}}
 async function text(page, id) { return id.startsWith('#history') ? page.locator(id).textContent() : page.locator(id).innerText(); }
 async function main() {
   server = http.createServer((req,res) => {
@@ -213,7 +214,9 @@ async function main() {
     await open(p); for (const target of ['wed','fri','mon','diet','cardio']) {
       if(target==='diet')await p.locator('.extras-menu > summary').tap();
       const link=target==='cardio'?'#mon a[href="#cardio"]':`a[href="#${target}"]`;
-      await Promise.all([p.waitForURL(url=>url.hash==='#'+target),p.locator(link).first().tap()]);
+      await p.locator(link).first().tap();
+      await dismissWorkoutPrompt(p);
+      await p.waitForURL(url=>url.hash==='#'+target);
       assert.equal(new URL(p.url()).hash, '#'+target);
     }
   });
