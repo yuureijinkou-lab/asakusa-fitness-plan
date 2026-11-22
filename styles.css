@@ -163,3 +163,15 @@ body.timer-focus-active{position:fixed;width:100%;height:100%;overflow:hidden;ov
 /* Compact training workspace: native disclosure works without JavaScript. */
 .space-summary{cursor:pointer;min-height:48px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:12px}.space-summary small{font-weight:500;color:var(--sub);font-size:12px}.space-body{border-top:1px solid var(--border);padding-top:14px;margin-top:12px}.machine-guide{margin:12px 0}.machine-guide>summary{cursor:pointer;min-height:44px;padding:10px 0;color:var(--green);font-weight:700;font-size:14px}.machine-guide ol{margin-top:8px}.quicknav{position:sticky;top:0;z-index:20;background:var(--bg);padding:7px 0}.quicknav a[aria-current="page"]{background:var(--green);color:white;border-color:var(--green)}.quicknav a[aria-current="page"] small{color:#d9eee2}.workout-day{scroll-margin-top:96px}.machine{scroll-margin-top:96px}
 /* Switch training immediately, without a scrolling animation moving tap targets. */ html{scroll-behavior:auto}
+
+.quicknav{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(52px,.75fr)}
+.extras-menu{position:relative;display:flex}
+.extras-menu > summary{display:grid;place-items:center;list-style:none;cursor:pointer;min-height:44px;height:100%;box-sizing:border-box;background:white;border:1px solid var(--border);border-radius:15px;padding:6px;color:var(--ink);font-weight:800}
+.extras-menu > summary::-webkit-details-marker{display:none}
+.extras-links{position:absolute;right:0;top:calc(100% + 6px);padding:6px;width:156px;background:white;border:1px solid var(--border);border-radius:15px;box-shadow:0 6px 18px #25503720}
+.extras-links a{box-shadow:none;border:0;font-size:14px}
+#warmup,#posture,#diet,#history{scroll-margin-top:96px}
+.warmup .small{margin-bottom:0}
+#weightStatus:empty{display:none}
+.extras-menu > summary{width:100%}
+.machine-intro .reps{font-size:19px;line-height:1.3;font-weight:800}

@@ -9,13 +9,20 @@
     if(days.indexOf(id)<0)return;
     active=id;
     sections.forEach(function(section){section.hidden=section.id!==id;});
-    document.querySelectorAll('.quicknav a').forEach(function(link){
+    document.querySelectorAll('.quicknav > a').forEach(function(link){
       if(link.hash==='#'+id)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
     });
     try{localStorage.setItem(key,id);}catch(error){}
   }
+  var extras = ['posture', 'diet', 'history'];
+  var menu = document.querySelector('.extras-menu');
   function reveal(hash){
     var id=fromHash(hash);if(id)show(id);
+    var target = document.getElementById(hash.slice(1));
+    extras.forEach(function(id){
+      var panel = document.getElementById(id);
+      panel.hidden = !panel.contains(target);
+    });
     if(hash==='#sync')document.getElementById('sync').open=true;
   }
   var saved=null;try{saved=localStorage.getItem(key);}catch(error){}
@@ -28,7 +35,7 @@
   document.addEventListener('click',function(event){
     if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
     var link=event.target.closest('a[href]');
-    if(link&&link.target!=='_blank'&&link.origin===location.origin&&link.pathname===location.pathname){reveal(link.hash);if(link.hash===location.hash)rememberEntry();}
+    if(link&&link.target!=='_blank'&&link.origin===location.origin&&link.pathname===location.pathname){reveal(link.hash);if(menu && menu.contains(link))menu.open=false;if(link.hash===location.hash)rememberEntry();}
   });
   window.addEventListener('hashchange',navigate);
   window.addEventListener('popstate',navigate);
@@ -329,7 +336,8 @@
   // Keep native <details> working independently of script and storage.
   var status = document.getElementById('storageStatus');
   function storageMessage() {
-    status.textContent=accountStore.isVolatile()?'当前只能临时记录，刷新前请导出备份。':account.user?'本机自动保存，联网后同步到当前账号。共用设备用完请退出。':'游客记录仅保存在当前浏览器。登录后可选择导入；清理网站数据前请导出备份。';
+    status.hidden = !accountStore.isVolatile();
+    status.textContent = status.hidden ? '' : '当前只能临时记录，刷新前请导出备份。';
   }
   function read(key){return accountStore.get(key);}
   function write(key,value){accountStore.set(key,value);storageMessage();}
@@ -361,7 +369,6 @@
   function updateDay() {
     day = localDay();
     for (var i = 0; i < done.length; i++) done[i].checked = read(doneKey(done[i])) === 'yes';
-    document.getElementById('recordDate').textContent = day + ' 的训练打卡';
   }
   function ensureDay() { if (day !== localDay()) updateDay(); }
   updateDay();
@@ -564,4 +571,4 @@
   render();
   document.getElementById('runtimeStatus').textContent = '交互已启用：点器械图片或名称可展开／收起；打卡、重量与爬坡计时可用。';
   document.getElementById('runtimeStatus').className = 'runtime-ready';
-})().catch(function(){var status=document.getElementById('runtimeStatus');if(status)status.textContent='记录组件暂未加载，请刷新重试；下方器械图文仍可直接展开阅读。';});
+})().catch(function(){var status=document.getElementById('runtimeStatus');if(status){status.hidden=false;status.textContent='记录组件暂未加载，请刷新重试。';}});
