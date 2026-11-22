@@ -88,11 +88,6 @@ async function snapshot(page, scope, otherScopes = []) {
 async function settings(page, scope) {
   return page.evaluate(({ base, setting }) => Object.fromEntries(['chest.seat', 'chest.adjustment', 'triceps.seat', 'triceps.adjustment'].map(key => [key, localStorage.getItem(base + setting + key)])), { base: prefix(scope), setting: SETTING });
 }
-async function apply(page) {
-  assert.equal(await page.locator('#equipmentCorrection').evaluate(element => element.open), false, 'photo correction starts folded');
-  await page.locator('#equipmentCorrection > summary').click();
-  await page.locator('#applySettingCorrection').click();
-}
 async function assertCorrected(page, scope, oldAdjustment = '') {
   assert.deepEqual(await settings(page, scope), { 'chest.seat': '7', 'chest.adjustment': 'D', 'triceps.seat': '2', 'triceps.adjustment': oldAdjustment });
   assert.deepEqual(await page.locator('[data-setting-value="chest.seat"]').allTextContents(), ['7', '7']);
@@ -135,16 +130,15 @@ async function scenario(name, body) { await body(); console.log('PASS ' + name);
   await scenario('a custom triceps adjustment E and unknown chest/triceps weights are retained', async () => {
     const d = await device({ seed: legacy('E', false) }), before = await snapshot(d.page, 'guest');
     assert.equal(before.protectedValues[LOAD + 'chest'], null); assert.equal(before.protectedValues[LOAD + 'triceps'], null);
-    await apply(d.page); await assertCorrected(d.page, 'guest', 'E');
+    assert.equal((await settings(d.page, 'guest'))['triceps.adjustment'], 'E');
     assert.deepEqual(await snapshot(d.page, 'guest'), before);
     assert.equal(await d.page.locator('#mon-chest input.load').inputValue(), ''); assert.equal(await d.page.locator('#mon-triceps input.load').inputValue(), ''); await d.close();
   });
-  await scenario('a fresh guest has no automatic settings and only gets the requested correction after clicking', async () => {
+  await scenario('a fresh guest has no automatic settings or correction prompt', async () => {
     const d = await device(), before = await snapshot(d.page, 'guest');
     for (const input of await d.page.locator('[data-setting]').all()) assert.equal(await input.inputValue(), '');
     assert.deepEqual(await settings(d.page, 'guest'), { 'chest.seat': null, 'chest.adjustment': null, 'triceps.seat': null, 'triceps.adjustment': null });
-    await apply(d.page);
-    assert.deepEqual(await settings(d.page, 'guest'), { 'chest.seat': '7', 'chest.adjustment': 'D', 'triceps.seat': '2', 'triceps.adjustment': null });
+    assert.equal(await d.page.locator('#equipmentCorrection').count(), 0);
     assert.deepEqual(await snapshot(d.page, 'guest'), before);
     assert.equal(await d.page.evaluate(() => Array.from({ length: localStorage.length }, (_, n) => localStorage.key(n)).some(key => key.includes('.undefined'))), false); await d.close();
   });
@@ -168,15 +162,13 @@ async function scenario(name, body) { await body(); console.log('PASS ' + name);
     assert.equal((await settings(d.page, 'guest'))['triceps.seat'], '7');
     await d.close();
   });
-  await scenario('without JavaScript the correction explanation and corrected photos expand natively', async () => {
+  await scenario('without JavaScript the corrected photos expand natively', async () => {
     const d = await device({ javaScriptEnabled: false });
     for (const id of ['mon-pulldown', 'fri-pulldown']) {
       assert.equal(await d.page.locator('#' + id + ' .fixed-settings').count(), 0, 'pulldown needs no adjustment record');
       assert.equal(await d.page.locator('#' + id + ' [data-last-weight="pulldown"]').count(), 1, 'weight/date record remains available');
     }
-    await d.page.locator('#equipmentCorrection > summary').click();
-    assert.match(await d.page.locator('#equipmentCorrection').textContent(), /胸推机：座位7、调节D；三头肌机：座位2/);
-    assert.equal(await d.page.locator('#applySettingCorrection').isDisabled(), true);
+    assert.equal(await d.page.locator('#equipmentCorrection').count(), 0);
     for (const id of ['mon-chest', 'fri-chest']) {
       const card = d.page.locator('#' + id);
       assert.deepEqual(await card.locator('.fixed-settings dd').allTextContents(), ['7', 'D']);
