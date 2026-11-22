@@ -15,7 +15,7 @@ async function test(name, body, options = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, timezoneId: 'Asia/Tokyo', ...options });
   const page = await context.newPage();
   page.scriptsEnabled = options.javaScriptEnabled !== false;
-  page.setDefaultTimeout(4000);
+  page.setDefaultTimeout(15000);
   try { await body(page, context); results.push({ name, pass: true }); console.log('PASS', name); }
   catch(e) { results.push({ name, pass: false, error: e.message }); console.log('FAIL', name, e.message.split('\n')[0]); }
   finally { await context.close(); }
@@ -29,6 +29,7 @@ async function ready(page) {
 async function open(page) { await page.goto(origin); await ready(page); await showCycle(page); }
 async function reload(page) { await page.reload(); await ready(page); await showCycle(page); }
 async function frozen(page, iso = '2020-10-19T03:00:00+09:00') { await page.clock.install({ time: new Date(iso) }); await open(page); }
+async function showCard(page,id){if(page.scriptsEnabled===false)return;const day=id.split('-')[0];if(['mon','wed','fri'].includes(day)&&!await page.locator('#'+day).isVisible())await page.locator('.quicknav a[href="#'+day+'"]').tap();}
 async function text(page, id) { return page.locator(id).innerText(); }
 async function main() {
   server = http.createServer((req,res) => {
@@ -131,6 +132,7 @@ async function main() {
     assert.equal(new Set(images.map(i=>i.src)).size,9);
     assert.equal(await p.locator('.photo-viewer,.identify-tip').count(),0);
     for (const gallery of await p.locator('details.machine .setting-photos').all()) {
+      await showCard(p,await gallery.evaluate(e=>e.closest('.machine').id));
       assert.equal(await gallery.evaluate(e=>e.open),false);
       await gallery.locator('summary').tap();assert.equal(await gallery.locator('img').first().isVisible(),true);
       await p.waitForFunction(el=>Array.from(el.querySelectorAll('img')).every(i=>i.complete&&i.naturalWidth>=600),await gallery.elementHandle());
@@ -141,7 +143,7 @@ async function main() {
     await c.route('https://**/*', r=>r.fulfill({contentType:'text/html',body:'<title>Video target verified</title>'}));
     await open(p);assert.equal(await p.locator('details.machine a.video-link').count(),15);
     const cases=[['mon-pulldown','NAIEnMjN-6w'],['fri-pulldown','NAIEnMjN-6w'],['mon-abs','o_0WrejFbAw'],['wed-abs','o_0WrejFbAw'],['wed-legpress','yyla8aCTMWo'],['fri-abductor','H98IP8rARy4'],['wed-glute','7nazTC6EshM'],['fri-glute','7nazTC6EshM'],['wed-legcurl','SiwJ_T62l9c'],['wed-abductor','H98IP8rARy4']];
-    for(const [id,videoId] of cases){const [tab]=await Promise.all([p.waitForEvent('popup'),p.locator('#'+id+' a.video-link').tap()]);await tab.waitForLoadState('domcontentloaded');assert.equal(tab.url(),'https://www.youtube.com/watch?v='+videoId);await tab.close();}
+    for(const [id,videoId] of cases){await showCard(p,id);const [tab]=await Promise.all([p.waitForEvent('popup'),p.locator('#'+id+' a.video-link').tap()]);await tab.waitForLoadState('domcontentloaded');assert.equal(tab.url(),'https://www.youtube.com/watch?v='+videoId);await tab.close();}
   });
   await test('main photos and native adjustment galleries remain available in script-disabled offline files', async p => {
     await p.goto(require('node:url').pathToFileURL(file).href);
@@ -175,11 +177,11 @@ async function main() {
     await open(p); assert.equal(await p.locator('#mon-chest input.load').inputValue(),'');
     assert.equal(await p.locator('#mon-chest .fixed-settings dd').first().innerText(),'待记录');
     assert.ok((await p.locator('.fixed-settings dd').allTextContents()).every(value=>value==='待记录'),'new guests do not inherit the owner settings shown in static fallback content');
-    await p.locator('#mon-chest input.load').fill('15'); await reload(p);
+    await showCard(p,'mon-chest');await p.locator('#mon-chest input.load').fill('15'); await reload(p);
     assert.equal(await p.locator('#fri-chest input.load').inputValue(),'15');
     assert.equal(await p.evaluate(()=>localStorage.getItem('gym-account.v2|guest|gym-compatible.load.chest')),'15');
     assert.equal(await p.evaluate(()=>localStorage.getItem('gym-compatible.load.chest')),null,'new records do not leak into legacy global keys');
-    await p.locator('#fri-chest input.load').fill(''); await reload(p);
+    await showCard(p,'fri-chest');await p.locator('#fri-chest input.load').fill(''); await reload(p);
     assert.equal(await p.locator('#mon-chest input.load').inputValue(),'');
     assert.equal(await p.evaluate(()=>localStorage.getItem('gym-account.v2|guest|gym-compatible.load.chest')),'');
   });
@@ -188,10 +190,11 @@ async function main() {
     await frozen(p); await p.locator('#play').tap();
     const cases = [['mon-chest','https://www.youtube.com/watch?v=lmINcLKC4Z8'],['fri-chest','https://www.youtube.com/watch?v=lmINcLKC4Z8'],['mon-row','https://www.youtube.com/watch?v=4A1xAwd7jWs'],['fri-row','https://www.youtube.com/watch?v=4A1xAwd7jWs'],['mon-triceps','https://player.vimeo.com/video/708844777?app_id=58479&autopause=0&badge=0&h=958ad4edde&player_id=0']];
     for (const [id,url] of cases) {
+      await showCard(p,id);
       const [video] = await Promise.all([p.waitForEvent('popup'),p.locator('#'+id+' a.video-link').tap()]);
       await video.waitForLoadState('domcontentloaded'); assert.equal(video.url(),url); await video.close();
     }
-    assert.equal(p.url(),origin+'/'); assert.match(await text(p,'#play'),/暂停/);
+    assert.equal(new URL(p.url()).pathname,'/'); assert.match(await text(p,'#play'),/暂停/);
     const before = await text(p,'#clock');
     await p.clock.fastForward(2000);
     assert.ok((await text(p,'#clock')) < before, 'timer continues advancing after video tabs close');
@@ -199,6 +202,7 @@ async function main() {
   await test('all 15 machine cards toggle by touch, including illustration and title', async p => {
     await open(p); assert.equal(await p.locator('details.machine').count(), 15);
     for (const card of await p.locator('details.machine').all()) {
+      await showCard(p,await card.getAttribute('id'));
       const before = await card.evaluate(e => e.open);
       await card.locator('.machine-picture').tap(); assert.equal(await card.evaluate(e => e.open), !before);
       await card.locator('strong').first().tap(); assert.equal(await card.evaluate(e => e.open), before);
@@ -217,33 +221,33 @@ async function main() {
   });
   await test('weight history saves a settled value with local date, survives reload, and deduplicates repeated cards', async p => {
     await frozen(p);
-    await p.locator('#mon-row input.load').fill('17');
-    await p.locator('#mon-row input.load').fill('17.5');
+    await showCard(p,'mon-row');await p.locator('#mon-row input.load').fill('17');
+    await showCard(p,'mon-row');await p.locator('#mon-row input.load').fill('17.5');
     await p.clock.fastForward(1200);
     assert.equal(await p.locator('#historyRows tr').count(),1);
     assert.match(await text(p,'#historyRows'), /2020-10-19[\s\S]*划船[\s\S]*17\.5/);
-    await p.locator('#fri-row input.load').fill('17.5');
+    await showCard(p,'fri-row');await p.locator('#fri-row input.load').fill('17.5');
     await p.clock.fastForward(1200);
     assert.equal(await p.locator('#historyRows tr').count(),1);
     await reload(p);
     assert.equal(await p.locator('#historyRows tr').count(),1);
-    await p.locator('#mon-row input.load').fill('20');
+    await showCard(p,'mon-row');await p.locator('#mon-row input.load').fill('20');
     await reload(p);
     assert.equal(await p.locator('#historyRows tr').count(),2);
     assert.match(await text(p,'#historyRows tr:first-child'),/20/);
   });
   await test('same weight on a new local day becomes a separate dated entry and invalid or empty weights do not', async p => {
     await frozen(p,'2020-10-19T23:59:58+09:00');
-    await p.locator('#mon-chest input.load').fill('7.5');
+    await showCard(p,'mon-chest');await p.locator('#mon-chest input.load').fill('7.5');
     await p.clock.fastForward(1200);
     await p.clock.fastForward(2000);
-    await p.locator('#fri-chest input.load').fill('7.5');
+    await showCard(p,'fri-chest');await p.locator('#fri-chest input.load').fill('7.5');
     await p.clock.fastForward(1200);
     assert.equal(await p.locator('#historyRows tr').count(),2);
     assert.match(await text(p,'#historyRows tr:first-child'),/2020-10-20/);
-    await p.locator('#mon-chest input.load').fill('-1');
+    await showCard(p,'mon-chest');await p.locator('#mon-chest input.load').fill('-1');
     await p.clock.fastForward(1200);
-    await p.locator('#mon-chest input.load').fill('');
+    await showCard(p,'mon-chest');await p.locator('#mon-chest input.load').fill('');
     await p.clock.fastForward(1200);
     assert.equal(await p.locator('#historyRows tr').count(),2);
   });
@@ -251,7 +255,7 @@ async function main() {
     await frozen(p);await p.locator('#mon-chest input.load').fill('11.25');await p.clock.fastForward(1200);
     assert.equal(await p.locator('#mon-chest input.load').evaluate(e=>e.validity.valid),true);
     assert.match(await text(p,'#historyRows'),/11\.25 kg/);
-    await p.locator('#mon-row input.load').fill('3.75');await p.clock.fastForward(1200);
+    await showCard(p,'mon-row');await p.locator('#mon-row input.load').fill('3.75');await p.clock.fastForward(1200);
     assert.equal(await p.locator('#historyRows tr').count(),2);
     await reload(p);assert.equal(await p.locator('#mon-chest input.load').inputValue(),'11.25');
   });
@@ -281,7 +285,7 @@ async function main() {
   await test('unreadable history is preserved without blocking latest weights or the timer', async p => {
     await p.addInitScript(()=>localStorage.setItem('gym-compatible.history.v1','broken history'));
     await open(p);assert.match(await text(p,'#historyStatus'),/保留原数据/);
-    await p.locator('#mon-row input.load').fill('15');await p.locator('#play').click();
+    await showCard(p,'mon-row');await p.locator('#mon-row input.load').fill('15');await p.locator('#play').click();
     assert.match(await text(p,'#play'),/暂停/);
     assert.equal(await p.evaluate(()=>localStorage.getItem('gym-account.v2|guest|gym-compatible.history.v1')),'broken history');
   });

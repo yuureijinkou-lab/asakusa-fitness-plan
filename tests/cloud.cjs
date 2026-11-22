@@ -94,6 +94,7 @@ async function device(id = A, configuration = {}) {
   page.on('pageerror', error => errors.push(error.message)); page.setDefaultTimeout(15000);
   await page.clock.install({ time: new Date('2020-01-10T12:00:00+09:00') }); await page.goto(origin);
   await page.waitForFunction(() => document.querySelector('#runtimeStatus').classList.contains('runtime-ready'));
+  await page.locator('#sync > summary').click();
   return { c: context, p: page, async close() { assert.deepEqual(errors, [], 'uncaught page errors'); contexts.delete(context); await context.close(); } };
 }
 async function synced(page, count) {
@@ -102,7 +103,7 @@ async function synced(page, count) {
     return status.startsWith('已同步') && (expected === null || status.includes(expected + ' 条'));
   }, count === undefined ? null : count);
 }
-async function accountOptions(page) { if (!await page.locator('#accountOptions').evaluate(element => element.open)) await page.locator('#accountOptionsLabel').click(); }
+async function accountOptions(page) { if(!await page.locator('#sync').evaluate(e=>e.open))await page.locator('#sync > summary').click(); if (!await page.locator('#accountOptions').evaluate(element => element.open)) await page.locator('#accountOptionsLabel').click(); }
 async function sync(page, count) { await accountOptions(page); await page.locator('#syncNow').click(); await synced(page, count); }
 async function expose(locator) { await locator.evaluate(element => { let parent = element.parentElement; while (parent) { if (parent.tagName === 'DETAILS') parent.open = true; parent = parent.parentElement; } }); }
 (async () => {

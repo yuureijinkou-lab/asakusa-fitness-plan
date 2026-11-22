@@ -138,6 +138,7 @@ async function device(db, initialUid = null, configuration = {}) {
   await page.waitForFunction(() => document.querySelector('#mon-row input.load') && !document.querySelector('#mon-row input.load').disabled);
   await page.waitForFunction(() => { const status = document.querySelector('#runtimeStatus'); return status && (status.classList.contains('runtime-ready') || status.textContent.includes('组件暂未加载')); });
   assert.equal(await page.locator('#runtimeStatus').getAttribute('class'), 'runtime-ready', await page.locator('#runtimeStatus').textContent());
+  await page.locator('#sync > summary').click();
   return { context, page, errors, async close() { assert.deepEqual(errors, [], 'uncaught browser errors'); contexts.delete(context); await context.close(); } };
 }
 async function expose(locator) {
@@ -152,7 +153,7 @@ async function completed(page, date, plan) {
   await page.waitForFunction(({ date, plan }) => Array.from(document.querySelectorAll('#cycleLog li')).some(row => row.textContent.includes(date) && row.textContent.includes(plan.toUpperCase())), { date, plan });
 }
 async function synced(page) { await page.waitForFunction(() => document.querySelector('#syncStatus').textContent.startsWith('已同步')); }
-async function accountOptions(page) {
+async function accountOptions(page) { if(!await page.locator('#sync').evaluate(e=>e.open))await page.locator('#sync > summary').click();
   if (!await page.locator('#accountOptions').evaluate(element => element.open)) await page.locator('#accountOptionsLabel').click();
 }
 async function sync(page) { await accountOptions(page); await page.locator('#syncNow').click(); await synced(page); }
