@@ -33,7 +33,7 @@
   reveal(location.hash);
   rememberEntry();
   document.addEventListener('click',function(event){
-    if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+    if(event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
     var link=event.target.closest('a[href]');
     if(link&&link.target!=='_blank'&&link.origin===location.origin&&link.pathname===location.pathname){reveal(link.hash);if(menu && menu.contains(link))menu.open=false;if(link.hash===location.hash)rememberEntry();}
   });
@@ -256,6 +256,25 @@
     function remember(){lastState=JSON.stringify(state);}
     function save(){if(!locked)write(key,JSON.stringify(state));}
     function recalculate(fallback){var items=ordered();state.next=items.length?next(items[items.length-1].plan):fallback;}
+    function recordSession(date, plan, entry, now) {
+      remember();
+      if (entry) entry.plan = plan;
+      else state.sessions.push({ date: date, plan: plan, at: now.toISOString() });
+      selectedDay = date;
+      week = monday(date);
+      recalculate(plan);
+      save();
+      editing = false;
+      selectedPlan = state.next;
+      render();
+      text(status, '已记录 ' + date + ' 的 ' + plan.toUpperCase() + '；下一次 ' + state.next.toUpperCase() + '。');
+    }
+    function recordTime(entry) {
+      if (entry.at === entry.date + 'T00:00:00.000Z') return '';
+      var date = new Date(entry.at);
+      var time = new Intl.DateTimeFormat('zh-CN', {hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).format(date);
+      return ' · ' + (dayString(date) === entry.date ? '' : dayString(date) + ' ') + time + ' 记录';
+    }
     function chooseDay(d){selectedDay=d;editing=false;selectedPlan=state.next;if(validDate(d))week=monday(d);render();}
     function chooseAnotherDay(){selectedDay='';selectedPlan=state.next;editing=false;render();dateInput.focus();status.textContent='请选择 '+state.next.toUpperCase()+' 实际完成的日期。还没训练时，可以先查看动作，在训练当天回来记录。';}
     function beginEdit(d){var found=session(d);if(!found||locked)return;selectedDay=d;selectedPlan=found.plan;week=monday(d);editing=true;render();dateInput.focus();}
@@ -292,7 +311,7 @@
       text(document.getElementById('cycleWeek'),'本周已完成 '+count+' 次；每周2次或3次都可以，下一周继续循环。');
       text(document.getElementById('cycleBusyList'),state.busy.length?'忙碌日：'+state.busy.slice().sort().slice(-30).join('、'):'暂无忙碌日记录。');
       var list=document.getElementById('cycleLog');list.replaceChildren();
-      ordered().reverse().slice(0,12).forEach(function(s){var li=document.createElement('li'),button=document.createElement('button');li.textContent=s.date+' · '+s.plan.toUpperCase()+' · '+plans[s.plan].name;var skipped=s.skipped||{},labels={pulldown:'高位下拉',row:'划船',chest:'胸推',triceps:'三头肌',abs:'腹肌机',glute:'臀部机',legpress:'腿举',legcurl:'腿弯举',abductor:'髋外展'};if(Array.isArray(s.completed)&&s.completed.length)li.textContent+=' · '+s.completed.length+'项完成';Object.keys(skipped).forEach(function(k){li.textContent+=' · '+(labels[k]||k)+'跳过：'+String(skipped[k]).slice(0,200);});button.type='button';button.textContent='更正';button.dataset.date=s.date;button.disabled=locked;button.addEventListener('click',function(){beginEdit(this.dataset.date);});li.appendChild(button);list.appendChild(li);});
+      ordered().reverse().slice(0,12).forEach(function(s){var li=document.createElement('li'),button=document.createElement('button');li.textContent=s.date+' · '+s.plan.toUpperCase()+' · '+plans[s.plan].name+recordTime(s);var skipped=s.skipped||{},labels={pulldown:'高位下拉',row:'划船',chest:'胸推',triceps:'三头肌',abs:'腹肌机',glute:'臀部机',legpress:'腿举',legcurl:'腿弯举',abductor:'髋外展'};if(Array.isArray(s.completed)&&s.completed.length)li.textContent+=' · '+s.completed.length+'项完成';Object.keys(skipped).forEach(function(k){li.textContent+=' · '+(labels[k]||k)+'跳过：'+String(skipped[k]).slice(0,200);});button.type='button';button.textContent='更正';button.dataset.date=s.date;button.disabled=locked;button.addEventListener('click',function(){beginEdit(this.dataset.date);});li.appendChild(button);list.appendChild(li);});
       if(!state.sessions.length){var li=document.createElement('li');li.textContent='尚未记录训练。';list.appendChild(li);}
       text(status,locked?'循环记录无法读取，已保留原数据；可继续查看A/B/C，重量与计时不受影响。':'日历和记录按实际训练日期保存；补记不会覆盖已有日期。器械打卡不自动推进循环。');calendar();
     }
@@ -306,10 +325,39 @@
       if(locked)return;var entry=session(selectedDay);
       if(entry&&!editing){chooseAnotherDay();return;}
       if(!validDate(selectedDay)||selectedDay>localDay()||state.busy.indexOf(selectedDay)!==-1)return;
-      remember();var recordedDate=selectedDay,recordedPlan=selectedPlan;
-      if(entry){entry.plan=selectedPlan;}else state.sessions.push({date:selectedDay,plan:selectedPlan,at:new Date().toISOString()});
-      recalculate(recordedPlan);save();editing=false;selectedPlan=state.next;render();text(status,'已记录 '+recordedDate+' 的 '+recordedPlan.toUpperCase()+'；下一次 '+state.next.toUpperCase()+'。');
+      recordSession(selectedDay, selectedPlan, entry, new Date());
     });
+    var recordDialog = document.getElementById('workoutRecordDialog');
+    if (recordDialog && typeof recordDialog.showModal === 'function') {
+      var pendingWorkout = null;
+      var recordTitle = document.getElementById('workoutRecordTitle');
+      function canRecordToday(date) {
+        return account.isCurrent() && !locked && !session(date) && !state.busy.includes(date);
+      }
+      document.querySelectorAll('.quicknav > a').forEach(function(link) {
+        link.addEventListener('click', function(event) {
+          if (!event.isTrusted || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+          if (recordDialog.open || !canRecordToday(localDay())) return;
+          var plan = Object.keys(plans).find(function(key) { return '#' + plans[key].anchor === link.hash; });
+          if (!plan) return;
+          event.preventDefault();
+          pendingWorkout = { plan: plan, link: link };
+          recordTitle.textContent = '记录 ' + plan.toUpperCase() + ' · ' + plans[plan].name + '？';
+          recordDialog.returnValue = '';
+          recordDialog.showModal();
+        });
+      });
+      recordDialog.addEventListener('close', function() {
+        var workout = pendingWorkout;
+        pendingWorkout = null;
+        if (!workout) return;
+        var now = new Date(), date = dayString(now);
+        if (recordDialog.returnValue === 'record' && canRecordToday(date)) {
+          recordSession(date, workout.plan, null, now);
+        }
+        workout.link.click();
+      });
+    }
     edit.addEventListener('click',function(){beginEdit(selectedDay);});
     cancel.addEventListener('click',function(){editing=false;selectedPlan=state.next;render();});
     remove.addEventListener('click',function(){var entry=session(selectedDay);if(locked||!editing||!entry)return;remember();var previousPlan=entry.plan;state.sessions=state.sessions.filter(function(s){return s.date!==selectedDay;});recalculate(previousPlan);save();editing=false;selectedPlan=state.next;render();text(status,'已删除该日期的循环记录，可点“撤销上一步操作”恢复；重量历史未改变。');});
